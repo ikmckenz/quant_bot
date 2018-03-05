@@ -1,3 +1,4 @@
+# TODO: Add new data source. Maybe yahoo or google finance. Quandl doesn't have SPY
 # TODO: add ticker queue to update after close (file as a stack maybe)
 
 import numpy as np
@@ -11,6 +12,7 @@ import quandl
 with open('key.txt') as file:
     for line in file:
         my_quandl_key = line
+    my_quandl_key = my_quandl_key[:-1]
 
 quandl.ApiConfig.api_key = my_quandl_key
 num_cores = cpu_count()
@@ -142,8 +144,13 @@ def import_price_history(ticker):
         # Throw error? Return 1?
         return 1
     else:
+        print('Getting full history from Quandl')
         df = quandl.get_table('WIKI/PRICES', ticker=ticker)
+        if len(df) == 0:
+            print('Error, no data')
+            return 1
         df = clean_quandl_prices(df)
+        print('Adding data to database')
         df.to_sql('prices', conn, if_exists='append')
         conn.close()
         return 0

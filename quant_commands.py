@@ -1,9 +1,26 @@
-# TODO: Generate multiple ticker returns sql query
-# TODO: Use that to create correlation matrix.
-
 import numpy as np
 import pandas as pd
 from database_updates import connect_db
+
+
+def pandas2post(df):
+    # Turn a pandas dataframe into a formatted reddit post
+    message = 'Index | '
+    below_columns = '-|'
+    for col in list(df):
+        message = message + col + ' | '
+        below_columns = below_columns + '-|'
+    message = message[:-3]
+    below_columns = below_columns[:-1]
+    message = message + '\n'
+    message = message + below_columns + '\n'
+    for index, row in df.iterrows():
+        message = message + str(index) + ' | '
+        for i in row.tolist():
+            message = message + str(i) + ' | '
+        message = message[:-3]
+        message = message + '\n'
+    return message
 
 
 def get_single_ticker_year_data(ticker):
@@ -19,8 +36,34 @@ def get_single_ticker_year_data(ticker):
 
 def get_multi_ticker_adj_close(tickers):
     engine, meta = connect_db()
-    sql = ''
-    # Ummmmm
+    sql = 'select distinct date from prices order by date desc limit 252;'
+    df = pd.read_sql(sql, engine)
+    df = df.iloc[::-1]
+    df.set_index('date', drop=True, inplace=True)
+    for ticker in tickers:
+        sql = 'select date, adj_close from prices where ticker = \'%s\' order by date desc limit 252;' % ticker
+        data = pd.read_sql(sql, engine)
+        data = data.iloc[::-1]
+        data.set_index('date', drop=True, inplace=True)
+        data.rename(columns={'adj_close': ticker}, inplace=True)
+        df = df.join(data, how='inner')
+    return df
+
+
+def get_multi_ticker_adj_volume(tickers):
+    engine, meta = connect_db()
+    sql = 'select distinct date from prices order by date desc limit 252;'
+    df = pd.read_sql(sql, engine)
+    df = df.iloc[::-1]
+    df.set_index('date', drop=True, inplace=True)
+    for ticker in tickers:
+        sql = 'select date, adj_volume from prices where ticker = \'%s\' order by date desc limit 252;' % ticker
+        data = pd.read_sql(sql, engine)
+        data = data.iloc[::-1]
+        data.set_index('date', drop=True, inplace=True)
+        data.rename(columns={'adj_volume': ticker}, inplace=True)
+        df = df.join(data, how='inner')
+    return df
 
 
 def simple_vol(ticker):
@@ -51,4 +94,20 @@ def get_avg_volume(ticker):
     first_date = min(df['date'])
     avg_volume = df['adj_volume'].mean()
     avg_volume = "{:,.2f}".format(avg_volume)
-    return 'Average daily volume from %s to %s was %s' % (first_date, last_date, avg_volume)
+    return 'Average daily volume of %s from %s to %s was %s' % (ticker, first_date, last_date, avg_volume)
+
+
+def price_correlation_matrix(tickers):
+    df = get_multi_ticker_adj_close(tickers)
+    df = df.corr()
+    message = 'Price correlation matrix:\n\n'
+    message = message + pandas2post(df)
+    return message
+
+
+def volume_correlation_matrix(tickers):
+    df = get_multi_ticker_adj_volume(tickers)
+    df = df.corr()
+    message = 'Volume correlation matrix:\n\n'
+    message = message + pandas2post(df)
+    return message
