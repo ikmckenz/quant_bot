@@ -45,3 +45,10 @@ def garman_klass_vol(ticker):
     return 'Garman-Klass volatility of %s from %s to %s was %.5f%%' % (ticker, first_date, last_date, vol)
 
 
+def get_avg_volume(ticker):
+    df = get_single_ticker_year_data(ticker)
+    last_date = max(df['date'])
+    first_date = min(df['date'])
+    avg_volume = df['adj_volume'].mean()
+    avg_volume = "{:,.2f}".format(avg_volume)
+    return 'Average daily volume from %s to %s was %s' % (first_date, last_date, avg_volume)
