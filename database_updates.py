@@ -1,23 +1,15 @@
-# TODO: Add new data source. Maybe yahoo or google finance. Quandl doesn't have SPY
 # TODO: add ticker queue to update after close (file as a stack maybe)
 
-import numpy as np
 import pandas as pd
 import datetime as dt
 import sqlalchemy as sq
-import requests, json, pytz
-from multiprocessing import cpu_count, Pool
-import quandl
+import requests, json, pytz, configparser
 
-with open('key.txt') as file:
-    for line in file:
-        my_quandl_key = line
-    my_quandl_key = my_quandl_key[:-1]
+# Configuration section
+config = configparser.ConfigParser()
+config.read('config.txt')
 
-quandl.ApiConfig.api_key = my_quandl_key
-num_cores = cpu_count()
-num_partitions = num_cores * 2
-quandl_update_freq = 0 # Days
+db_update_freq = 5  # Days
 
 
 def connect_db():
@@ -26,38 +18,30 @@ def connect_db():
     return engine, meta
 
 
-def parallelize_dataframe(df, func):
-    df_split = np.array_split(df, num_partitions)
-    pool = Pool(num_cores)
-    df = pd.concat(pool.map(func, df_split))
-    pool.close()
-    pool.join()
-    return df
-
-
-def to_datetime(x):
-    x['date'] = pd.to_datetime(x['date'], format='%Y-%m-%d')
+def clean_av_prices(x):
+    x.rename(columns= lambda name: str(name)[3:], inplace=True)
+    x['date'] = pd.to_datetime(x.index, format='%Y-%m-%d')
+    x.reset_index(drop=True, inplace=True)
+    x.rename(columns={'dividend amount': 'div',
+                      'adjusted close': 'adj_close',
+                      'split coefficient': 'split'},
+             inplace=True)
+    x = x[:-1]
     return x
 
 
-def clean_quandl_prices(x):
-    x.rename(columns={"ex-dividend": "div"}, inplace=True)
-
-    if x.shape[0] > 1000:
-        x = parallelize_dataframe(x, to_datetime)
-    else:
-        x = to_datetime(x)
-    x.set_index('date', drop=True, inplace=True)
-    return x
-
-
-def last_updated_quandl():
+def db_last_update():
     # Returns a dataframe with tickers and when the last info was
     engine, meta = connect_db()
     sql = "select distinct on (\"ticker\") ticker, date from prices order by ticker, date desc nulls last, date;"
     df = pd.read_sql(sql, engine)
-    df = to_datetime(df)
     return df
+
+
+def db_drop_ticker(ticker):
+    engine, meta = connect_db()
+    sql = 'delete from prices where ticker = \'%s\';' % ticker
+    engine.execute(sql)
 
 
 def get_google_fin(ticker):
@@ -81,7 +65,7 @@ def get_google_fin(ticker):
     return entry
 
 
-def update_ticker(ticker):
+def update_ticker_db(ticker):
     # Update db with google finance entry
     ticker = ticker.upper()
     # Connect to db
@@ -90,46 +74,22 @@ def update_ticker(ticker):
     conn = engine.connect()
     s = ticker_table.select().where(ticker_table.c.ticker == ticker)
     s = sq.sql.expression.exists(s).select()
-    ret = conn.execute(s).scalar()
-
-    if ret:
-        last_updated = "select updated from tickers where ticker = \'" + ticker + "\'"
-        (last_updated,) = conn.execute(last_updated)
-        last_updated = last_updated[0]
-        nydt = pytz.timezone('UTC').localize(dt.datetime.utcnow())
-        nydt = nydt.astimezone(pytz.timezone('America/New_York'))
-        past_four = nydt.time() > dt.time(16, 1)
-        if (last_updated + dt.timedelta(days=1)) <= nydt.date():
-            if past_four:
-                entry = get_google_fin(ticker)
-                s = sq.sql.expression.update(ticker_table). \
-                    where(ticker_table.c.ticker == entry['ticker']). \
-                    values(entry)
-                conn.execute(s)
-            else:
-                entry = get_google_fin(ticker)
-                s = sq.sql.expression.update(ticker_table). \
-                    where(ticker_table.c.ticker == entry['ticker']). \
-                    values(entry)
-                conn.execute(s)
-                # Update ticker later
-                # update_ticker_later(ticker)
+    exists = conn.execute(s).scalar()
+    if exists:
+        entry = get_google_fin(ticker)
+        s = sq.sql.expression.update(ticker_table). \
+            where(ticker_table.c.ticker == entry['ticker']). \
+            values(entry)
+        conn.execute(s)
     else:
         entry = get_google_fin(ticker)
         s = sq.sql.expression.insert(ticker_table).values(entry)
         conn.execute(s)
-        nydt = pytz.timezone('UTC').localize(dt.datetime.utcnow())
-        nydt = nydt.astimezone(pytz.timezone('America/New_York'))
-        past_four = nydt.time() > dt.time(16, 1)
-        if not past_four:
-            pass
-            # Update ticker later
-            # update_ticker_later(ticker)
     conn.close()
 
 
-def import_price_history(ticker):
-    # Pass in a ticker to grab full history from Quandl, put in the prices table
+def import_full_history(ticker):
+    # Pass in a ticker to grab full history from AV, put in the prices table
     # Will throw error if ticker exists
     engine, meta = connect_db()
     conn = engine.connect()
@@ -141,38 +101,49 @@ def import_price_history(ticker):
     if ret:
         print('Error: Ticker exists.')
         conn.close()
-        # Throw error? Return 1?
-        return 1
     else:
-        print('Getting full history from Quandl')
-        df = quandl.get_table('WIKI/PRICES', ticker=ticker)
-        if len(df) == 0:
-            print('Error, no data')
-            return 1
-        df = clean_quandl_prices(df)
-        print('Adding data to database')
-        df.to_sql('prices', conn, if_exists='append')
+        print('Getting full history from AlphaVantage')
+        query_string = ('https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED'
+                        '&symbol=%s&outputsize=full&apikey=%s' % (ticker, config['keys']['alphavantage']))
+        response = requests.get(query_string)
+        data = response.json()
+        if 'Meta Data' and 'Time Series (Daily)' in data:
+            symbol = data['Meta Data']['2. Symbol']
+            df = pd.DataFrame.from_dict(data['Time Series (Daily)'], orient='index')
+            df = clean_av_prices(df)
+            df['ticker'] = symbol
+            df.to_sql('prices', engine, index=False, if_exists='append')
+        elif 'Error Message' in data:
+            print('Error: Not a ticker')
         conn.close()
-        return 0
 
 
 def update_price_data():
     # Update all the data in the prices table
     engine, meta = connect_db()
-    df = last_updated_quandl()
-    df['date'] = df['date'] + dt.timedelta(days=1)
-    last_updated_dt = df['date']
-    df['date'] = df['date'].apply(lambda x: x.strftime('%Y-%m-%d'))
-    triggerdate = dt.datetime.today() + dt.timedelta(days=quandl_update_freq)
+    df = db_last_update()
+    todaysdate = dt.datetime.today().date()
     for index, row in df.iterrows():
-        if triggerdate > last_updated_dt[index]:
-            data = quandl.get_table('WIKI/PRICES',
-                                    ticker=row['ticker'],
-                                    date={'gte': row['date']})
-            if len(data) == 0:
-                # Probably switch to logging instead of printing
-                print('Nothing to update for %s' % row['ticker'])
-            else:
-                data = clean_quandl_prices(data)
+        needed_data = (todaysdate - row['date']).days
+        if needed_data >= 100:  # AV compact download returns only 100 data points
+            print('Updating %s' % row['ticker'])
+            print('Too much data missing. Purging and re-downloading.')
+            db_drop_ticker(row['ticker'])
+            import_full_history(row['ticker'])
+        else:
+            if todaysdate > row['date'] + dt.timedelta(days=db_update_freq):
                 print('Updating %s' % row['ticker'])
-                data.to_sql('prices', engine, if_exists='append')
+                query_string = ('https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED'
+                                '&symbol=%s&apikey=%s' % (row['ticker'], config['keys']['alphavantage']))
+                response = requests.get(query_string)
+                data = response.json()
+                if 'Meta Data' and 'Time Series (Daily)' in data:
+                    symbol = data['Meta Data']['2. Symbol']
+                    df = pd.DataFrame.from_dict(data['Time Series (Daily)'], orient='index')
+                    df = clean_av_prices(df)
+                    df['ticker'] = symbol
+                    df = df[df['date'] > row['date']]
+                    print('Adding %d rows to db for ticker %s' % (len(df), row['ticker']))
+                    df.to_sql('prices', engine, index=False, if_exists='append')
+                elif 'Error Message' in data:
+                    print('Woah, bad error. Cant download existing ticker %s' % row['ticker'])
