@@ -1,6 +1,21 @@
 import numpy as np
 import pandas as pd
+import matplotlib
+import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
+import seaborn as sns
+import scipy.stats as ss
+import configparser
+import requests
+import io
+import base64
 from database_updates import connect_db
+
+
+# Configuration section
+sns.set()
+config = configparser.ConfigParser()
+config.read('config.txt')
 
 
 def pandas2post(df):
@@ -23,10 +38,28 @@ def pandas2post(df):
     return message
 
 
-def get_single_ticker_year_data(ticker):
+def post_imgur(fig):
+    pic_bytes = io.BytesIO()
+    fig.savefig(pic_bytes, format='png')
+    pic_bytes.seek(0)
+    pic_string = base64.b64encode(pic_bytes.getvalue())
+    url = 'https://api.imgur.com/3/upload.json'
+    id = "Client-ID %s" % config['keys']['imgur-client-id']
+    headers = {"Authorization": id}
+    resp = requests.post(url,
+                         headers=headers,
+                         data={
+                             'image': pic_string,
+                             'type': 'base64'
+                         })
+    resp = resp.json()
+    return resp['data']['link']
+
+
+def get_single_ticker_data(ticker, years=1):
     # First, let's grab the last 252 data points
     engine, meta = connect_db()
-    sql = 'select * from prices where ticker = \'%s\' order by date desc limit 252;' % ticker
+    sql = 'select * from prices where ticker = \'%s\' order by date desc limit %d;' % (ticker, 252*years)
     df = pd.read_sql(sql, engine)
     # Flip it the right way around
     df = df.iloc[::-1]
@@ -34,9 +67,9 @@ def get_single_ticker_year_data(ticker):
     return df
 
 
-def get_multi_ticker_adj_close(tickers):
+def get_multi_ticker_adj_close(tickers, years=1):
     engine, meta = connect_db()
-    sql = 'select distinct date from prices order by date desc limit 252;'
+    sql = 'select distinct date from prices order by date desc limit %d;' % 252*years
     df = pd.read_sql(sql, engine)
     df = df.iloc[::-1]
     df.set_index('date', drop=True, inplace=True)
@@ -67,7 +100,7 @@ def get_multi_ticker_adj_volume(tickers):
 
 
 def simple_vol(ticker):
-    df = get_single_ticker_year_data(ticker)
+    df = get_single_ticker_data(ticker)
     last_date = max(df['date'])
     first_date = min(df['date'])
     df['return'] = df['close'].pct_change()
@@ -76,7 +109,7 @@ def simple_vol(ticker):
 
 
 def garman_klass_vol(ticker):
-    df = get_single_ticker_year_data(ticker)
+    df = get_single_ticker_data(ticker)
     last_date = max(df['date'])
     first_date = min(df['date'])
     vol = 0
@@ -89,7 +122,7 @@ def garman_klass_vol(ticker):
 
 
 def get_avg_volume(ticker):
-    df = get_single_ticker_year_data(ticker)
+    df = get_single_ticker_data(ticker)
     last_date = max(df['date'])
     first_date = min(df['date'])
     avg_volume = df['volume'].mean()
@@ -110,4 +143,43 @@ def volume_correlation_matrix(tickers):
     df = df.corr()
     message = 'Volume correlation matrix:\n\n'
     message = message + pandas2post(df)
+    return message
+
+
+def ticker_histogram(ticker):
+    df = get_single_ticker_data(ticker, 5)
+    last_date = max(df['date'])
+    df = df[['date', 'close']]
+    df['date'] = pd.to_datetime(df['date'])
+    df.set_index('date', drop=True, inplace=True)
+    df = df.resample('W-MON').last()
+    df['return'] = df['close'].pct_change()
+    df.dropna(inplace=True)
+    # Analytics
+    mean = df['return'].mean()
+    std = df['return'].std()
+    skew = df['return'].skew()
+    kurtosis = df['return'].kurtosis()
+    # Plot
+    fig, ax = plt.subplots()
+    n, bins, patches = ax.hist(df['return'], bins=50)
+    ticks = ax.get_xticks()
+    ax.set_xticklabels(['{:.2f}%'.format(x*100) for x in ticks])
+    ax.set_xlabel('Returns')
+    ax.xaxis.set_tick_params(size=3)
+    ax.set_ylabel('Count')
+    ax.set_title('%s Weekly Returns Over 5 Years' % ticker)
+    # Fit normal
+    y = mlab.normpdf(bins, mean, std)
+    ax.plot(bins, y, 'r--')
+    plot_text = "Updated: %s\nMean: %.3f\nStd: %.3f\nSkew: %.3f\nKurtosis: %.3f" \
+                % (last_date, mean, std, skew, kurtosis)
+    ax.annotate(plot_text, xy=(0, 1), xytext=(+15, -15), fontsize=10,
+                xycoords='axes fraction', textcoords='offset points',
+                bbox=dict(facecolor='white', alpha=0.8),
+                horizontalalignment='left', verticalalignment='top')
+    # Post to Imgur
+    link = post_imgur(fig)
+    plt.clf()
+    message = '[%s 5 years of weekly returns as of %s](%s)' % (ticker, last_date, link)
     return message
