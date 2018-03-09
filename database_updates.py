@@ -52,11 +52,16 @@ def get_google_fin(ticker):
     nydt = pytz.timezone('UTC').localize(dt.datetime.utcnow())
     nydt = nydt.astimezone(pytz.timezone('America/New_York'))
     nydt = nydt.strftime("%Y-%m-%d")
+    beta = data[0]['beta']
+    if len(beta) == 0:
+        beta = 1.0
+    else:
+        beta = float(beta)
     entry = {
         'ticker': data[0]['symbol'],
         'exchange': data[0]['exchange'],
         'name': data[0]['name'],
-        'beta': float(data[0]['beta']),
+        'beta': beta,
         'price': float(data[0]['l']),
         'changep': float(data[0]['cp']),
         'mktcap': data[0]['mc'],
@@ -116,6 +121,7 @@ def import_full_history(ticker):
         elif 'Error Message' in data:
             print('Error: Not a ticker')
         conn.close()
+    update_ticker_db(ticker)
 
 
 def update_price_data():
