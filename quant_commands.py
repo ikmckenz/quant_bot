@@ -1,3 +1,5 @@
+# TODO: Add price performance comparison, Add CAPM comparisons
+
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -40,12 +42,12 @@ def pandas2post(df):
 
 def post_imgur(fig):
     pic_bytes = io.BytesIO()
-    fig.savefig(pic_bytes, format='png')
+    fig.savefig(pic_bytes, format='png', bbox_inches='tight')
     pic_bytes.seek(0)
     pic_string = base64.b64encode(pic_bytes.getvalue())
     url = 'https://api.imgur.com/3/upload.json'
-    id = "Client-ID %s" % config['keys']['imgur-client-id']
-    headers = {"Authorization": id}
+    imgur_id = "Client-ID %s" % config['keys']['imgur-client-id']
+    headers = {"Authorization": imgur_id}
     resp = requests.post(url,
                          headers=headers,
                          data={
@@ -138,6 +140,7 @@ def get_avg_volume(ticker):
 def price_correlation_matrix(tickers):
     df = get_multi_ticker_adj_close(tickers)
     df = df.corr()
+    df = df.round(decimals=4)
     message = 'Price correlation matrix:\n\n'
     message = message + pandas2post(df)
     return message
@@ -190,6 +193,31 @@ def ticker_histogram(ticker):
     return message
 
 
+def normalized_returns(tickers):
+    df = get_multi_ticker_adj_close(tickers)
+    df.index = pd.to_datetime(df.index)
+    df = df.pct_change()
+    df.fillna(value=0, inplace=True)
+    df = df + 1
+    df = df.cumprod()
+    # Plot
+    fig, ax = plt.subplots()
+    for i in list(df):
+        ax.plot(df.index, df[i], label=i)
+    # Other formatting
+    fig.autofmt_xdate()
+    ax.set_title('Normalized Returns')
+    # Add our legend
+    box = ax.get_position()
+    ax.set_position([box.x0, box.y0, box.width * 0.8, box.height])
+    ax.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    # Post to Imgur
+    link = post_imgur(fig)
+    plt.clf()
+    message = '[One year of normalized returns](%s)' % link
+    return message
+
+
 def peer_comp(ticker):
     url = 'https://api.iextrading.com/1.0/stock/' + ticker + '/peers'
     resp = requests.get(url)
@@ -199,5 +227,8 @@ def peer_comp(ticker):
     else:
         peers = ['SPY']
     peers.insert(0, ticker)
-    message = price_correlation_matrix(peers)
+    message = 'Peer comparison for %s\n\n' % ticker
+    norm_ret = normalized_returns(peers)
+    message = message + norm_ret + '\n\n'
+    message = message + price_correlation_matrix(peers)
     return message
