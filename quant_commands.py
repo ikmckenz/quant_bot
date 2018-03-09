@@ -9,7 +9,7 @@ import configparser
 import requests
 import io
 import base64
-from database_updates import connect_db
+from database_updates import connect_db, import_full_history
 
 
 # Configuration section
@@ -57,6 +57,7 @@ def post_imgur(fig):
 
 
 def get_single_ticker_data(ticker, years=1):
+    status = import_full_history(ticker)
     # First, let's grab the last 252 data points
     engine, meta = connect_db()
     sql = 'select * from prices where ticker = \'%s\' order by date desc limit %d;' % (ticker, 252*years)
@@ -68,6 +69,8 @@ def get_single_ticker_data(ticker, years=1):
 
 
 def get_multi_ticker_adj_close(tickers, years=1):
+    for ticker in tickers:
+        import_full_history(ticker)
     engine, meta = connect_db()
     sql = 'select distinct date from prices order by date desc limit %d;' % 252*years
     df = pd.read_sql(sql, engine)
@@ -84,6 +87,8 @@ def get_multi_ticker_adj_close(tickers, years=1):
 
 
 def get_multi_ticker_adj_volume(tickers):
+    for ticker in tickers:
+        import_full_history(ticker)
     engine, meta = connect_db()
     sql = 'select distinct date from prices order by date desc limit 252;'
     df = pd.read_sql(sql, engine)
@@ -182,4 +187,17 @@ def ticker_histogram(ticker):
     link = post_imgur(fig)
     plt.clf()
     message = '[%s 5 years of weekly returns as of %s](%s)' % (ticker, last_date, link)
+    return message
+
+
+def peer_comp(ticker):
+    url = 'https://api.iextrading.com/1.0/stock/' + ticker + '/peers'
+    resp = requests.get(url)
+    if resp.status_code == 200:
+        peers = resp.json()
+        peers.append('SPY')
+    else:
+        peers = ['SPY']
+    peers.insert(0, ticker)
+    message = price_correlation_matrix(peers)
     return message

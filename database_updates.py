@@ -1,5 +1,3 @@
-# TODO: add ticker queue to update after close (file as a stack maybe)
-
 import pandas as pd
 import datetime as dt
 import sqlalchemy as sq
@@ -9,7 +7,7 @@ import requests, json, pytz, configparser
 config = configparser.ConfigParser()
 config.read('config.txt')
 
-db_update_freq = 5  # Days
+db_update_freq = 2  # Days
 
 
 def connect_db():
@@ -62,7 +60,7 @@ def get_google_fin(ticker):
         'exchange': data[0]['exchange'],
         'name': data[0]['name'],
         'beta': beta,
-        'price': float(data[0]['l']),
+        'price': float(data[0]['l'].replace(',','')),
         'changep': float(data[0]['cp']),
         'mktcap': data[0]['mc'],
         'updated': nydt
@@ -95,7 +93,6 @@ def update_ticker_db(ticker):
 
 def import_full_history(ticker):
     # Pass in a ticker to grab full history from AV, put in the prices table
-    # Will throw error if ticker exists
     engine, meta = connect_db()
     conn = engine.connect()
     # Check existence of ticker
@@ -104,10 +101,11 @@ def import_full_history(ticker):
     s = sq.sql.expression.exists(s).select()
     ret = conn.execute(s).scalar()
     if ret:
-        print('Error: Ticker exists.')
+        print('Ticker %s exists.' % ticker)
         conn.close()
+        status = 0
     else:
-        print('Getting full history from AlphaVantage')
+        print('Getting full history of %s from AlphaVantage' % ticker)
         query_string = ('https://www.alphavantage.co/query?function=TIME_SERIES_DAILY_ADJUSTED'
                         '&symbol=%s&outputsize=full&apikey=%s' % (ticker, config['keys']['alphavantage']))
         response = requests.get(query_string)
@@ -118,10 +116,17 @@ def import_full_history(ticker):
             df = clean_av_prices(df)
             df['ticker'] = symbol
             df.to_sql('prices', engine, index=False, if_exists='append')
+            status = 0
         elif 'Error Message' in data:
             print('Error: Not a ticker')
+            status = -1
         conn.close()
-    update_ticker_db(ticker)
+    if status == 0:
+        update_ticker_db(ticker)
+    else:
+        pass
+        # raise ValueError('Error pulling data')
+    return status
 
 
 def update_price_data():
@@ -153,3 +158,7 @@ def update_price_data():
                     df.to_sql('prices', engine, index=False, if_exists='append')
                 elif 'Error Message' in data:
                     print('Woah, bad error. Cant download existing ticker %s' % row['ticker'])
+
+
+if __name__ == '__main__':
+    update_price_data()
