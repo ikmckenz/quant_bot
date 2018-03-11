@@ -228,7 +228,7 @@ def peer_comp(ticker: str):
     else:
         peers = ['SPY']
     peers.insert(0, ticker)
-    message = 'Peer comparison for %s\n\n' % ticker
+    message = 'Peer comparison for %s:\n\n' % ticker
     norm_ret = normalized_returns(peers)
     message = message + norm_ret + '\n\n'
     message = message + price_correlation_matrix(peers)
