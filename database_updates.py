@@ -16,7 +16,7 @@ def connect_db():
     return engine, meta
 
 
-def clean_av_prices(x):
+def clean_av_prices(x: pd.DataFrame) -> pd.DataFrame:
     x.rename(columns= lambda name: str(name)[3:], inplace=True)
     x['date'] = pd.to_datetime(x.index, format='%Y-%m-%d')
     x.reset_index(drop=True, inplace=True)
@@ -28,7 +28,7 @@ def clean_av_prices(x):
     return x
 
 
-def db_last_update():
+def db_last_update() -> pd.DataFrame:
     # Returns a dataframe with tickers and when the last info was
     engine, meta = connect_db()
     sql = "select distinct on (\"ticker\") ticker, date from prices order by ticker, date desc nulls last, date;"
@@ -36,13 +36,13 @@ def db_last_update():
     return df
 
 
-def db_drop_ticker(ticker):
+def db_drop_ticker(ticker: str):
     engine, meta = connect_db()
     sql = 'delete from prices where ticker = \'%s\';' % ticker
     engine.execute(sql)
 
 
-def get_google_fin(ticker):
+def get_google_fin(ticker: str) -> dict:
     url = 'https://finance.google.com/finance?q=' + ticker + '&output=json'
     response = requests.get(url).text
     response = response[4:]
@@ -68,7 +68,7 @@ def get_google_fin(ticker):
     return entry
 
 
-def update_ticker_db(ticker):
+def update_ticker_db(ticker: str):
     # Update db with google finance entry
     ticker = ticker.upper()
     # Connect to db
@@ -91,7 +91,7 @@ def update_ticker_db(ticker):
     conn.close()
 
 
-def import_full_history(ticker):
+def import_full_history(ticker: str) -> int:
     # Pass in a ticker to grab full history from AV, put in the prices table
     engine, meta = connect_db()
     conn = engine.connect()
@@ -129,7 +129,7 @@ def import_full_history(ticker):
     return status
 
 
-def update_price_data():
+def update_price_data() -> None:
     # Update all the data in the prices table
     engine, meta = connect_db()
     df = db_last_update()

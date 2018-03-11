@@ -11,6 +11,7 @@ import configparser
 import requests
 import io
 import base64
+from typing import List
 from database_updates import connect_db, import_full_history
 
 
@@ -20,7 +21,7 @@ config = configparser.ConfigParser()
 config.read('config.txt')
 
 
-def pandas2post(df):
+def pandas2post(df: pd.DataFrame) -> str:
     # Turn a pandas dataframe into a formatted reddit post
     message = 'Index | '
     below_columns = '-|'
@@ -58,7 +59,7 @@ def post_imgur(fig):
     return resp['data']['link']
 
 
-def get_single_ticker_data(ticker, years=1):
+def get_single_ticker_data(ticker: str, years=1):
     status = import_full_history(ticker)
     # First, let's grab the last 252 data points
     engine, meta = connect_db()
@@ -70,7 +71,7 @@ def get_single_ticker_data(ticker, years=1):
     return df
 
 
-def get_multi_ticker_adj_close(tickers, years=1):
+def get_multi_ticker_adj_close(tickers: List[str], years=1):
     for ticker in tickers:
         import_full_history(ticker)
     engine, meta = connect_db()
@@ -88,7 +89,7 @@ def get_multi_ticker_adj_close(tickers, years=1):
     return df
 
 
-def get_multi_ticker_adj_volume(tickers):
+def get_multi_ticker_adj_volume(tickers: List[str]):
     for ticker in tickers:
         import_full_history(ticker)
     engine, meta = connect_db()
@@ -106,7 +107,7 @@ def get_multi_ticker_adj_volume(tickers):
     return df
 
 
-def simple_vol(ticker):
+def simple_vol(ticker: str):
     df = get_single_ticker_data(ticker)
     last_date = max(df['date'])
     first_date = min(df['date'])
@@ -115,7 +116,7 @@ def simple_vol(ticker):
     return 'Volatility of %s from %s to %s was %.5f%%' % (ticker, first_date, last_date, vol)
 
 
-def garman_klass_vol(ticker):
+def garman_klass_vol(ticker: str):
     df = get_single_ticker_data(ticker)
     last_date = max(df['date'])
     first_date = min(df['date'])
@@ -128,7 +129,7 @@ def garman_klass_vol(ticker):
     return 'Garman-Klass volatility of %s from %s to %s was %.5f%%' % (ticker, first_date, last_date, vol)
 
 
-def get_avg_volume(ticker):
+def get_avg_volume(ticker: str):
     df = get_single_ticker_data(ticker)
     last_date = max(df['date'])
     first_date = min(df['date'])
@@ -137,7 +138,7 @@ def get_avg_volume(ticker):
     return 'Average daily volume of %s from %s to %s was %s' % (ticker, first_date, last_date, avg_volume)
 
 
-def price_correlation_matrix(tickers):
+def price_correlation_matrix(tickers: List[str]):
     df = get_multi_ticker_adj_close(tickers)
     df = df.corr()
     df = df.round(decimals=4)
@@ -146,7 +147,7 @@ def price_correlation_matrix(tickers):
     return message
 
 
-def volume_correlation_matrix(tickers):
+def volume_correlation_matrix(tickers: List[str]):
     df = get_multi_ticker_adj_volume(tickers)
     df = df.corr()
     message = 'Volume correlation matrix:\n\n'
@@ -154,7 +155,7 @@ def volume_correlation_matrix(tickers):
     return message
 
 
-def ticker_histogram(ticker):
+def ticker_histogram(ticker: str):
     df = get_single_ticker_data(ticker, 5)
     last_date = max(df['date'])
     df = df[['date', 'close']]
@@ -193,7 +194,7 @@ def ticker_histogram(ticker):
     return message
 
 
-def normalized_returns(tickers):
+def normalized_returns(tickers: List[str]):
     df = get_multi_ticker_adj_close(tickers)
     df.index = pd.to_datetime(df.index)
     df = df.pct_change()
@@ -218,7 +219,7 @@ def normalized_returns(tickers):
     return message
 
 
-def peer_comp(ticker):
+def peer_comp(ticker: str):
     url = 'https://api.iextrading.com/1.0/stock/' + ticker + '/peers'
     resp = requests.get(url)
     if resp.status_code == 200:
