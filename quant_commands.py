@@ -21,9 +21,12 @@ config = configparser.ConfigParser()
 config.read('config.txt')
 
 
-def pandas2post(df: pd.DataFrame) -> str:
+def pandas2post(df: pd.DataFrame, keep_index=1) -> str:
     # Turn a pandas dataframe into a formatted reddit post
-    message = 'Index | '
+    if keep_index:
+        message = 'Index | '
+    else:
+        message = ''
     below_columns = '-|'
     for col in list(df):
         message = message + col + ' | '
@@ -33,7 +36,8 @@ def pandas2post(df: pd.DataFrame) -> str:
     message = message + '\n'
     message = message + below_columns + '\n'
     for index, row in df.iterrows():
-        message = message + str(index) + ' | '
+        if keep_index:
+            message = message + str(index) + ' | '
         for i in row.tolist():
             message = message + str(i) + ' | '
         message = message[:-3]
@@ -219,6 +223,17 @@ def normalized_returns(tickers: List[str]):
     return message
 
 
+def info_list(tickers: List[str]) -> pd.DataFrame:
+    engine, meta = connect_db()
+    sql = 'select * from tickers where '
+    for ticker in tickers:
+        sql = sql + 'ticker = \'%s\' or ' % ticker
+    sql = sql[:-4] + ';'
+    df = pd.read_sql(sql, engine)
+    message = pandas2post(df, keep_index=0)
+    return message
+
+
 def peer_comp(ticker: str):
     url = 'https://api.iextrading.com/1.0/stock/' + ticker + '/peers'
     resp = requests.get(url)
@@ -229,7 +244,10 @@ def peer_comp(ticker: str):
         peers = ['SPY']
     peers.insert(0, ticker)
     message = 'Peer comparison for %s:\n\n' % ticker
+    message = message + 'Peers: \n\n'
     norm_ret = normalized_returns(peers)
     message = message + norm_ret + '\n\n'
+    peer_table = info_list(peers)
+    message = message + peer_table + '\n\n'
     message = message + price_correlation_matrix(peers)
     return message
