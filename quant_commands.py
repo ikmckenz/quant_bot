@@ -244,9 +244,9 @@ def peer_comp(ticker: str):
         peers = ['SPY']
     peers.insert(0, ticker)
     message = 'Peer comparison for %s:\n\n' % ticker
-    message = message + 'Peers: \n\n'
     norm_ret = normalized_returns(peers)
     message = message + norm_ret + '\n\n'
+    message = message + 'Peers: \n\n'
     peer_table = info_list(peers)
     message = message + peer_table + '\n\n'
     message = message + price_correlation_matrix(peers)
