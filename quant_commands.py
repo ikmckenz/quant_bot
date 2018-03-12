@@ -1,5 +1,3 @@
-# TODO: Add price performance comparison, Add CAPM comparisons
-
 import numpy as np
 import pandas as pd
 import matplotlib
@@ -22,7 +20,7 @@ config.read('config.txt')
 
 
 def pandas2post(df: pd.DataFrame, keep_index=1) -> str:
-    # Turn a pandas dataframe into a formatted reddit post
+    # Turn a pandas dataframe into a formatted reddit post.
     if keep_index:
         message = 'Index | '
     else:
@@ -46,6 +44,7 @@ def pandas2post(df: pd.DataFrame, keep_index=1) -> str:
 
 
 def post_imgur(fig):
+    # Takes a Matplotlib figure and uploads it to Imgur without saving to disk.
     pic_bytes = io.BytesIO()
     fig.savefig(pic_bytes, format='png', bbox_inches='tight')
     pic_bytes.seek(0)
@@ -64,7 +63,8 @@ def post_imgur(fig):
 
 
 def get_single_ticker_data(ticker: str, years=1):
-    status = import_full_history(ticker)
+    # Gets price history for a ticker
+    import_full_history(ticker)  # Should move this to the places new tickers come in.
     # First, let's grab the last 252 data points
     engine, meta = connect_db()
     sql = 'select * from prices where ticker = \'%s\' order by date desc limit %d;' % (ticker, 252*years)
@@ -76,8 +76,9 @@ def get_single_ticker_data(ticker: str, years=1):
 
 
 def get_multi_ticker_adj_close(tickers: List[str], years=1):
+    # Gets price data for a list of given tickers
     for ticker in tickers:
-        import_full_history(ticker)
+        import_full_history(ticker)  # Should move this to the places tickers come in
     engine, meta = connect_db()
     sql = 'select distinct date from prices order by date desc limit %d;' % 252*years
     df = pd.read_sql(sql, engine)
@@ -94,8 +95,9 @@ def get_multi_ticker_adj_close(tickers: List[str], years=1):
 
 
 def get_multi_ticker_adj_volume(tickers: List[str]):
+    # Gets volume data for a list of given tickers
     for ticker in tickers:
-        import_full_history(ticker)
+        import_full_history(ticker)  # Should move this to the places tickers come in
     engine, meta = connect_db()
     sql = 'select distinct date from prices order by date desc limit 252;'
     df = pd.read_sql(sql, engine)
@@ -112,6 +114,7 @@ def get_multi_ticker_adj_volume(tickers: List[str]):
 
 
 def simple_vol(ticker: str):
+    # Calculates the volatility of a ticker over the last year
     df = get_single_ticker_data(ticker)
     last_date = max(df['date'])
     first_date = min(df['date'])
@@ -121,6 +124,7 @@ def simple_vol(ticker: str):
 
 
 def garman_klass_vol(ticker: str):
+    # Calculates the Garman-Klass volatility the given ticker over one year
     df = get_single_ticker_data(ticker)
     last_date = max(df['date'])
     first_date = min(df['date'])
@@ -134,6 +138,7 @@ def garman_klass_vol(ticker: str):
 
 
 def get_avg_volume(ticker: str):
+    # Gets the average amount of volume for a ticker over the last year
     df = get_single_ticker_data(ticker)
     last_date = max(df['date'])
     first_date = min(df['date'])
@@ -143,6 +148,7 @@ def get_avg_volume(ticker: str):
 
 
 def price_correlation_matrix(tickers: List[str]):
+    # Gets one year of price data for a list of tickers and then generates a correlation matrix
     df = get_multi_ticker_adj_close(tickers)
     df = df.corr()
     df = df.round(decimals=4)
@@ -152,6 +158,7 @@ def price_correlation_matrix(tickers: List[str]):
 
 
 def volume_correlation_matrix(tickers: List[str]):
+    # Gets one year of volume data for a list of tickers and then generates a correlation matrix
     df = get_multi_ticker_adj_volume(tickers)
     df = df.corr()
     message = 'Volume correlation matrix:\n\n'
@@ -160,6 +167,7 @@ def volume_correlation_matrix(tickers: List[str]):
 
 
 def ticker_histogram(ticker: str):
+    # Generates a histogram of weekly returns for 5 years of data and uploads to Imgur
     df = get_single_ticker_data(ticker, 5)
     last_date = max(df['date'])
     df = df[['date', 'close']]
@@ -199,6 +207,7 @@ def ticker_histogram(ticker: str):
 
 
 def normalized_returns(tickers: List[str]):
+    # Generate a plot of normalized returns for the list of tickers, uploads to imgur
     df = get_multi_ticker_adj_close(tickers)
     df.index = pd.to_datetime(df.index)
     df = df.pct_change()
@@ -224,6 +233,7 @@ def normalized_returns(tickers: List[str]):
 
 
 def info_list(tickers: List[str]) -> pd.DataFrame:
+    # Gets info about a list of tickers from the 'tickers' table
     engine, meta = connect_db()
     sql = 'select * from tickers where '
     for ticker in tickers:
@@ -235,6 +245,9 @@ def info_list(tickers: List[str]) -> pd.DataFrame:
 
 
 def peer_comp(ticker: str):
+    # Creates a peer comparison for the given ticker. First hits the IEX API to find peers for the ticker,
+    # then adds SPY to the peer list, then generates the normalized returns, then the peer info from the 'tickers'
+    # table in the database, then the correlation matrix.
     url = 'https://api.iextrading.com/1.0/stock/' + ticker + '/peers'
     resp = requests.get(url)
     if resp.status_code == 200:

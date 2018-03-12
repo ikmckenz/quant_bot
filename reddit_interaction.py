@@ -3,7 +3,7 @@ import praw
 import re
 import configparser
 from database_updates import connect_db
-from quant_commands import ticker_histogram, peer_comp, simple_vol, normalized_returns
+from quant_commands import ticker_histogram, peer_comp, simple_vol
 
 
 # Configuration section
@@ -24,6 +24,7 @@ replied = pd.read_sql(sql, engine)
 
 
 def test_ticker(ticker: str) -> int:
+    # Very basic SQL Injection prevention. Like very basic.
     if re.search("DROP", ticker):
         return 0
     if ticker.isalpha() and (len(ticker) < 6):
@@ -33,6 +34,7 @@ def test_ticker(ticker: str) -> int:
 
 
 def parse_reddit(comment: str) -> str:
+    # Parse a reddit comment with the !quant_bot flag and produce a response
     query_list = re.split("!quant_bot", comment)
     query_list.pop(0)
     query = query_list[0]
@@ -63,7 +65,7 @@ def parse_reddit(comment: str) -> str:
 
 
 def test_submission(submission):
-    # Reply to main submission
+    # Iterate over posts in a subreddit looking for my !quant_bot flag, respond to the ones that have it.
     if re.search("!quant_bot", submission.selftext):
         if submission.id not in replied['comments'].tolist():
             my_message = parse_reddit(submission.selftext)

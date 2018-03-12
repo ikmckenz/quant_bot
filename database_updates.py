@@ -11,12 +11,15 @@ db_update_freq = 2  # Days
 
 
 def connect_db():
-    engine = sq.create_engine('postgresql://mybot:botpass@localhost:5432/postgres')
+    # A simple connection that I use everywhere
+    url = 'postgresql://mybot:' + config['keys']['postgres-pass'] + '@localhost:5432/postgres'
+    engine = sq.create_engine(url)
     meta = sq.MetaData(bind=engine, reflect=True)
     return engine, meta
 
 
 def clean_av_prices(x: pd.DataFrame) -> pd.DataFrame:
+    # Clean the data from AlphaVantage
     x.rename(columns= lambda name: str(name)[3:], inplace=True)
     x['date'] = pd.to_datetime(x.index, format='%Y-%m-%d')
     x.reset_index(drop=True, inplace=True)
@@ -37,12 +40,14 @@ def db_last_update() -> pd.DataFrame:
 
 
 def db_drop_ticker(ticker: str):
+    # Drop the selected ticker from the database
     engine, meta = connect_db()
     sql = 'delete from prices where ticker = \'%s\';' % ticker
     engine.execute(sql)
 
 
 def get_google_fin(ticker: str) -> dict:
+    # Hit the Google Finance API to get information about a ticker
     url = 'https://finance.google.com/finance?q=' + ticker + '&output=json'
     response = requests.get(url).text
     response = response[4:]
@@ -161,4 +166,5 @@ def update_price_data() -> None:
 
 
 if __name__ == '__main__':
+    # We can run this file as a script to update the price data
     update_price_data()
