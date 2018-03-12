@@ -12,7 +12,7 @@ db_update_freq = 2  # Days
 
 def connect_db():
     # A simple connection that I use everywhere
-    url = 'postgresql://mybot:' + config['keys']['postgres-pass'] + '@localhost:5432/postgres'
+    url = 'postgresql://mybot:' + config['keys']['postgres-pass'] + '@localhost:5432/quantbot'
     engine = sq.create_engine(url)
     meta = sq.MetaData(bind=engine, reflect=True)
     return engine, meta

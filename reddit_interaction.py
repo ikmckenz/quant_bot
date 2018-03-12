@@ -103,7 +103,7 @@ def test_submission(submission):
 
 new_replies = pd.DataFrame(columns=['orig'])
 
-subreddit = reddit.subreddit('testingground4bots')  # +finance+wallstreetbets+stocks+investing')
+subreddit = reddit.subreddit('testingground4bots+finance+wallstreetbets+stocks+investing')
 for submission in subreddit.new(limit=50):
     test_submission(submission)
 
