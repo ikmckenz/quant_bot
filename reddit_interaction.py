@@ -2,7 +2,7 @@ import pandas as pd
 import praw
 import re
 import configparser
-from database_updates import connect_db
+from database_updates import connect_db, import_full_history
 from quant_commands import ticker_histogram, peer_comp, simple_vol
 
 
@@ -28,7 +28,11 @@ def test_ticker(ticker: str) -> int:
     if re.search("DROP", ticker):
         return 0
     if ticker.isalpha() and (len(ticker) < 6):
-        return 1
+        status = import_full_history(ticker)
+        if status == 0:
+            return 1
+        else:
+            return 0
     else:
         return 0
 

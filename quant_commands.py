@@ -64,7 +64,6 @@ def post_imgur(fig):
 
 def get_single_ticker_data(ticker: str, years=1):
     # Gets price history for a ticker
-    import_full_history(ticker)  # Should move this to the places new tickers come in.
     # First, let's grab the last 252 data points
     engine, meta = connect_db()
     sql = 'select * from prices where ticker = \'%s\' order by date desc limit %d;' % (ticker, 252*years)
@@ -77,8 +76,6 @@ def get_single_ticker_data(ticker: str, years=1):
 
 def get_multi_ticker_adj_close(tickers: List[str], years=1):
     # Gets price data for a list of given tickers
-    for ticker in tickers:
-        import_full_history(ticker)  # Should move this to the places tickers come in
     engine, meta = connect_db()
     sql = 'select distinct date from prices order by date desc limit %d;' % 252*years
     df = pd.read_sql(sql, engine)
@@ -96,8 +93,6 @@ def get_multi_ticker_adj_close(tickers: List[str], years=1):
 
 def get_multi_ticker_adj_volume(tickers: List[str]):
     # Gets volume data for a list of given tickers
-    for ticker in tickers:
-        import_full_history(ticker)  # Should move this to the places tickers come in
     engine, meta = connect_db()
     sql = 'select distinct date from prices order by date desc limit 252;'
     df = pd.read_sql(sql, engine)
@@ -258,6 +253,11 @@ def peer_comp(ticker: str):
     if ticker.upper() == 'SPY':
         peers = ['DIA', 'VTI', 'EFA']
     peers.insert(0, ticker)
+    status = 0
+    for stock in peers:
+        status += import_full_history(stock)
+    if status != 0:
+        return ''
     message = 'Peer comparison for %s:\n\n' % ticker
     norm_ret = normalized_returns(peers)
     message += norm_ret + '\n\n'
