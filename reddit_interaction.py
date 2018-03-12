@@ -23,7 +23,7 @@ sql = "select distinct orig as comments from posts;"
 replied = pd.read_sql(sql, engine)
 
 
-def test_ticker(ticker: str) -> int:
+def good_ticker(ticker: str) -> int:
     # Very basic SQL Injection prevention. Like very basic.
     if re.search("DROP", ticker):
         return 0
@@ -47,19 +47,19 @@ def parse_reddit(comment: str) -> str:
     method = query.split(' ')[0]
     if method == 'PEER' or method == 'PEERS':
         ticker = query.split(' ')[1]
-        if test_ticker(ticker):
+        if good_ticker(ticker):
             my_message = peer_comp(ticker)
         else:
             my_message = '%s not a valid ticker\n\n' % ticker
     elif method == 'HIST' or method == 'HISTOGRAM':
         ticker = query.split(' ')[1]
-        if test_ticker(ticker):
+        if good_ticker(ticker):
             my_message = ticker_histogram(ticker)
         else:
             my_message = '%s not a valid ticker\n\n' % ticker
     elif method == 'VOL' or method == 'VOLATILITY':
         ticker = query.split(' ')[1]
-        if test_ticker(ticker):
+        if good_ticker(ticker):
             my_message = simple_vol(ticker)
         else:
             my_message = '%s not a valid ticker\n\n' % ticker

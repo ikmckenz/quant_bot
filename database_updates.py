@@ -106,7 +106,6 @@ def import_full_history(ticker: str) -> int:
     s = sq.sql.expression.exists(s).select()
     ret = conn.execute(s).scalar()
     if ret:
-        print('Ticker %s exists.' % ticker)
         conn.close()
         status = 0
     else:
@@ -123,8 +122,7 @@ def import_full_history(ticker: str) -> int:
             df.to_sql('prices', engine, index=False, if_exists='append')
             status = 0
         elif 'Error Message' in data:
-            print('Error: Not a ticker')
-            status = -1
+            status = 1
         conn.close()
     if status == 0:
         update_ticker_db(ticker)
