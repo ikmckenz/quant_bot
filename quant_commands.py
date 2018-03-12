@@ -27,19 +27,19 @@ def pandas2post(df: pd.DataFrame, keep_index=1) -> str:
         message = ''
     below_columns = '-|'
     for col in list(df):
-        message = message + col + ' | '
+        message += col + ' | '
         below_columns = below_columns + '-|'
     message = message[:-3]
     below_columns = below_columns[:-1]
-    message = message + '\n'
-    message = message + below_columns + '\n'
+    message += '\n'
+    message += below_columns + '\n'
     for index, row in df.iterrows():
         if keep_index:
-            message = message + str(index) + ' | '
+            message += str(index) + ' | '
         for i in row.tolist():
-            message = message + str(i) + ' | '
+            message += str(i) + ' | '
         message = message[:-3]
-        message = message + '\n'
+        message += '\n'
     return message
 
 
@@ -153,7 +153,7 @@ def price_correlation_matrix(tickers: List[str]):
     df = df.corr()
     df = df.round(decimals=4)
     message = 'Price correlation matrix:\n\n'
-    message = message + pandas2post(df)
+    message += pandas2post(df)
     return message
 
 
@@ -162,7 +162,7 @@ def volume_correlation_matrix(tickers: List[str]):
     df = get_multi_ticker_adj_volume(tickers)
     df = df.corr()
     message = 'Volume correlation matrix:\n\n'
-    message = message + pandas2post(df)
+    message += pandas2post(df)
     return message
 
 
@@ -255,12 +255,14 @@ def peer_comp(ticker: str):
         peers.append('SPY')
     else:
         peers = ['SPY']
+    if ticker.upper() == 'SPY':
+        peers = ['DIA', 'VTI', 'EFA']
     peers.insert(0, ticker)
     message = 'Peer comparison for %s:\n\n' % ticker
     norm_ret = normalized_returns(peers)
-    message = message + norm_ret + '\n\n'
-    message = message + 'Peers: \n\n'
+    message += norm_ret + '\n\n'
+    message += 'Peers: \n\n'
     peer_table = info_list(peers)
-    message = message + peer_table + '\n\n'
-    message = message + price_correlation_matrix(peers)
+    message += peer_table + '\n\n'
+    message += price_correlation_matrix(peers)
     return message

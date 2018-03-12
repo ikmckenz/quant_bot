@@ -74,7 +74,7 @@ def test_submission(submission):
     else:
         my_message = ''
     if len(my_message) > 0:
-        my_message = my_message + '\n***\n^I ^am ^a ^bot. ^Message ^/u/ikmckenz ^for ^help.'
+        my_message += '\n***\n^I ^am ^a ^bot. ^Message ^/u/ikmckenz ^for ^help.'
         submission.reply(my_message)
         print("Replying to submission %s" % submission.id)
         sql = "insert into posts values(\'%s\');" % submission.id
@@ -90,7 +90,7 @@ def test_submission(submission):
         else:
             my_message = ''
         if len(my_message) > 0:
-            my_message = my_message + '\n***\n^I ^am ^a ^bot. ^Message ^/u/ikmckenz ^for ^help.'
+            my_message += '\n***\n^I ^am ^a ^bot. ^Message ^/u/ikmckenz ^for ^help.'
             comment.reply(my_message)
             print("Replying to comment %s" % comment.id)
             sql = "insert into posts values(\'%s\');" % comment.id
