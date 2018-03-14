@@ -110,6 +110,6 @@ for submission in subreddit.new(limit=50):
 sql = "select distinct orig as comments from posts;"
 replied = pd.read_sql(sql, engine)
 
-for submission in subreddit.hot(limit=25):
+for submission in subreddit.hot(limit=50):
     test_submission(submission)
 

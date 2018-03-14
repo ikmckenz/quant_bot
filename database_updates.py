@@ -7,7 +7,7 @@ import requests, json, pytz, configparser
 config = configparser.ConfigParser()
 config.read('config.txt')
 
-db_update_freq = 2  # Days
+db_update_freq = 3  # Days
 
 
 def connect_db():
