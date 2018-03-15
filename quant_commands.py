@@ -231,10 +231,10 @@ def normalized_returns(tickers: List[str]):
 def info_list(tickers: List[str]) -> pd.DataFrame:
     # Gets info about a list of tickers from the 'tickers' table
     engine, meta = connect_db()
-    sql = 'select * from tickers where '
+    sql = 'select ticker, name, price, mktcap, beta from tickers where '
     for ticker in tickers:
         sql = sql + 'ticker = \'%s\' or ' % ticker
-    sql = sql[:-4] + ';'
+    sql = sql[:-4] + ' order by ticker asc;'
     df = pd.read_sql(sql, engine)
     message = pandas2post(df, keep_index=0)
     return message

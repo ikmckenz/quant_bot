@@ -77,8 +77,9 @@ def test_submission(submission):
             my_message = ''
     else:
         my_message = ''
+    bleep_bloop = '\n***\n^I ^am ^a ^bot ^by ^/u/ikmckenz. ^For ^usage ^and ^issues ^see ^the ^[GitHub](http://ikmckenz.com/quant_bot/).'
     if len(my_message) > 0:
-        my_message += '\n***\n^I ^am ^a ^bot. ^For ^usage ^see ^[here](http://ikmckenz.com/quant_bot/). ^Direct ^messages ^to ^/u/ikmckenz.'
+        my_message += bleep_bloop
         submission.reply(my_message)
         print("Replying to submission %s" % submission.id)
         sql = "insert into posts values(\'%s\');" % submission.id
@@ -94,7 +95,7 @@ def test_submission(submission):
         else:
             my_message = ''
         if len(my_message) > 0:
-            my_message += '\n***\n^I ^am ^a ^bot. ^For ^usage ^see ^[here](http://ikmckenz.com/quant_bot). ^Direct ^messages ^to ^/u/ikmckenz.'
+            my_message += bleep_bloop
             comment.reply(my_message)
             print("Replying to comment %s" % comment.id)
             sql = "insert into posts values(\'%s\');" % comment.id
