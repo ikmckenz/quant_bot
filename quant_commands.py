@@ -262,8 +262,8 @@ def peer_comp(ticker: str):
     message = 'Peer comparison for %s:\n\n' % ticker
     norm_ret = normalized_returns(peers)
     message += norm_ret + '\n\n'
-    message += 'Peers: \n\n'
-    peer_table = info_list(peers)
-    message += peer_table + '\n\n'
+    # message += 'Peers: \n\n'
+    # peer_table = info_list(peers)
+    # message += peer_table + '\n\n'
     message += price_correlation_matrix(peers)
     return message
