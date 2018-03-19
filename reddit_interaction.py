@@ -25,6 +25,7 @@ replied = pd.read_sql(sql, engine)
 
 def good_ticker(ticker: str) -> int:
     # Very basic SQL Injection prevention. Like very basic.
+    print("Getting ticker %s" % ticker)
     if re.search("DROP", ticker):
         return 0
     if ticker.isalpha() and (len(ticker) < 6):

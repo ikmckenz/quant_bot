@@ -125,7 +125,8 @@ def import_full_history(ticker: str) -> int:
             status = 1
         conn.close()
     if status == 0:
-        update_ticker_db(ticker)
+        #update_ticker_db(ticker)
+        pass
     else:
         pass
         # raise ValueError('Error pulling data')
