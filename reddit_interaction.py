@@ -31,7 +31,7 @@ def good_ticker(ticker: str) -> int:
     if ticker.isalpha() and (len(ticker) < 6):
         status = import_full_history(ticker)
         if status == 0:
-            return 1
+            return 1  # If no error, return 1. Very confusing, but makes the if-statements nicer below.
         else:
             return 0
     else:

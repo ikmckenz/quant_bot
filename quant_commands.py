@@ -255,15 +255,17 @@ def peer_comp(ticker: str):
         peers = ['DIA', 'VTI', 'EFA']
     peers.insert(0, ticker)
     status = 0
+    newpeers = []
     for stock in peers:
-        status += import_full_history(stock)
-    if status != 0:
-        return ''
+        status = import_full_history(stock)
+        if status == 0:
+            newpeers.append(stock)
+    peers = newpeers
     message = 'Peer comparison for %s:\n\n' % ticker
     norm_ret = normalized_returns(peers)
     message += norm_ret + '\n\n'
-    # message += 'Peers: \n\n'
-    # peer_table = info_list(peers)
-    # message += peer_table + '\n\n'
+    message += 'Peers: \n\n'
+    peer_table = info_list(peers)
+    message += peer_table + '\n\n'
     message += price_correlation_matrix(peers)
     return message

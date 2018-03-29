@@ -75,18 +75,24 @@ ALTER TABLE public.prices OWNER TO postgres;
 --
 
 CREATE TABLE public.tickers (
-    ticker character varying(20),
-    exchange character varying(20),
-    name character varying(80),
+    ticker character varying(10) NOT NULL,
+    name character varying(200),
     beta real,
     price real,
-    changep real,
-    mktcap character varying(20),
+    mktcap bigint,
     updated date
 );
 
 
 ALTER TABLE public.tickers OWNER TO postgres;
+
+--
+-- Name: tickers_pkey; Type: CONSTRAINT; Schema: public; Owner: postgres
+--
+
+ALTER TABLE ONLY public.tickers
+    ADD CONSTRAINT tickers_pkey PRIMARY KEY (ticker);
+
 
 --
 -- Name: SCHEMA public; Type: ACL; Schema: -; Owner: postgres
@@ -105,7 +111,7 @@ GRANT ALL ON SCHEMA public TO PUBLIC;
 REVOKE ALL ON TABLE public.posts FROM PUBLIC;
 REVOKE ALL ON TABLE public.posts FROM postgres;
 GRANT ALL ON TABLE public.posts TO postgres;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.posts TO mybot;
+GRANT ALL ON TABLE public.posts TO mybot;
 
 
 --
@@ -115,7 +121,7 @@ GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.posts TO mybot;
 REVOKE ALL ON TABLE public.prices FROM PUBLIC;
 REVOKE ALL ON TABLE public.prices FROM postgres;
 GRANT ALL ON TABLE public.prices TO postgres;
-GRANT SELECT,INSERT,DELETE,UPDATE ON TABLE public.prices TO mybot;
+GRANT ALL ON TABLE public.prices TO mybot;
 
 
 --

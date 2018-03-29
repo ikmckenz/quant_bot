@@ -1,7 +1,7 @@
 import pandas as pd
 import datetime as dt
 import sqlalchemy as sq
-import requests, json, pytz, configparser
+import requests, pytz, configparser
 
 # Configuration section
 config = configparser.ConfigParser()
@@ -46,35 +46,32 @@ def db_drop_ticker(ticker: str):
     engine.execute(sql)
 
 
-def get_google_fin(ticker: str) -> dict:
-    # Hit the Google Finance API to get information about a ticker
-    url = 'https://finance.google.com/finance?q=' + ticker + '&output=json'
-    response = requests.get(url).text
-    response = response[4:]
-    data = json.loads(response)
+def get_iex_stats(ticker: str) -> dict:
+    # Hit the IEX API to get information about a ticker
+    url = 'https://api.iextrading.com/1.0/stock/' + ticker + '/price'
+    try:
+        price = float(requests.get(url).text)
+    except ValueError:
+        db_drop_ticker(ticker)
+        return {}
+    url = 'https://api.iextrading.com/1.0/stock/' + ticker + '/stats'
+    data = requests.get(url).json()
     nydt = pytz.timezone('UTC').localize(dt.datetime.utcnow())
     nydt = nydt.astimezone(pytz.timezone('America/New_York'))
-    nydt = nydt.strftime("%Y-%m-%d")
-    beta = data[0]['beta']
-    if len(beta) == 0:
-        beta = 1.0
-    else:
-        beta = float(beta)
+
     entry = {
-        'ticker': data[0]['symbol'],
-        'exchange': data[0]['exchange'],
-        'name': data[0]['name'],
-        'beta': beta,
-        'price': float(data[0]['l'].replace(',','')),
-        'changep': float(data[0]['cp']),
-        'mktcap': data[0]['mc'],
+        'ticker': data['symbol'],
+        'name': data['companyName'],
+        'beta': data['beta'],
+        'price': price,
+        'mktcap': int(data['marketcap']),
         'updated': nydt
     }
     return entry
 
 
 def update_ticker_db(ticker: str):
-    # Update db with google finance entry
+    # Update db with IEX entry
     ticker = ticker.upper()
     # Connect to db
     engine, meta = connect_db()
@@ -84,19 +81,29 @@ def update_ticker_db(ticker: str):
     s = sq.sql.expression.exists(s).select()
     exists = conn.execute(s).scalar()
     if exists:
-        entry = get_google_fin(ticker)
+        entry = get_iex_stats(ticker)
+        if len(entry) == 0:
+            conn.close()
+            return 1
         s = sq.sql.expression.update(ticker_table). \
             where(ticker_table.c.ticker == entry['ticker']). \
             values(entry)
         conn.execute(s)
     else:
-        entry = get_google_fin(ticker)
+        entry = get_iex_stats(ticker)
+        if len(entry) == 0:
+            conn.close()
+            return 1
         s = sq.sql.expression.insert(ticker_table).values(entry)
         conn.execute(s)
     conn.close()
+    return 0
 
 
 def import_full_history(ticker: str) -> int:
+    status = update_ticker_db(ticker)
+    if status == 1:
+        return status
     # Pass in a ticker to grab full history from AV, put in the prices table
     engine, meta = connect_db()
     conn = engine.connect()
@@ -124,12 +131,6 @@ def import_full_history(ticker: str) -> int:
         elif 'Error Message' in data:
             status = 1
         conn.close()
-    if status == 0:
-        #update_ticker_db(ticker)
-        pass
-    else:
-        pass
-        # raise ValueError('Error pulling data')
     return status
 
 
