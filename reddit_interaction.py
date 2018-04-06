@@ -78,7 +78,7 @@ def test_submission(submission):
             my_message = ''
     else:
         my_message = ''
-    bleep_bloop = '\n***\n^I ^am ^a ^bot ^by ^/u/ikmckenz. ^For ^usage ^and ^issues ^see ^the ^[GitHub](https://github.com/ikmckenz/quant_bot).'
+    bleep_bloop = '\n***\n^Made ^by ^/u/ikmckenz. ^For ^usage ^and ^issues ^see ^[GitHub](https://github.com/ikmckenz/quant_bot).'
     if len(my_message) > 0:
         my_message += bleep_bloop
         submission.reply(my_message)

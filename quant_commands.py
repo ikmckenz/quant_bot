@@ -67,7 +67,7 @@ def get_single_ticker_data(ticker: str, years=1):
     # Gets price history for a ticker
     # First, let's grab the last 252 data points
     engine, meta = connect_db()
-    sql = 'select * from prices where ticker = \'%s\' order by date desc limit %d;' % (ticker, 252*years)
+    sql = 'select * from prices where ticker = \'%s\' order by date desc limit %d;' % (ticker, (252*years))
     df = pd.read_sql(sql, engine)
     # Flip it the right way around
     df = df.iloc[::-1]
@@ -78,12 +78,12 @@ def get_single_ticker_data(ticker: str, years=1):
 def get_multi_ticker_adj_close(tickers: List[str], years=1):
     # Gets price data for a list of given tickers
     engine, meta = connect_db()
-    sql = 'select distinct date from prices order by date desc limit %d;' % 252*years
+    sql = 'select distinct date from prices order by date desc limit %d;' % (252*years)
     df = pd.read_sql(sql, engine)
     df = df.iloc[::-1]
     df.set_index('date', drop=True, inplace=True)
     for ticker in tickers:
-        sql = 'select date, adj_close from prices where ticker = \'%s\' order by date desc limit 252;' % ticker
+        sql = 'select date, adj_close from prices where ticker = \'%s\' order by date desc limit %d;' % (ticker, (252*years))
         data = pd.read_sql(sql, engine)
         data = data.iloc[::-1]
         data.set_index('date', drop=True, inplace=True)
@@ -264,7 +264,7 @@ def peer_comp(ticker: str):
     message = 'Peer comparison for %s:\n\n' % ticker
     norm_ret = normalized_returns(peers)
     message += norm_ret + '\n\n'
-    message += 'Peers: \n\n'
+    message += 'Peers (via IEX): \n\n'
     peer_table = info_list(peers)
     message += peer_table + '\n\n'
     message += price_correlation_matrix(peers)
